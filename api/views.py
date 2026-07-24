@@ -7,6 +7,9 @@ from django.contrib.auth import authenticate
 from django.db import transaction
 from django.db.models import Q
 
+from django.db.models import Count
+from .permissions import IsCompanyAdmin
+
 from .models import KBEntry, QueryLog
 from .serializers import RegisterSerializer, LoginSerializer, KBEntrySerializer
 
@@ -119,6 +122,30 @@ class QueryView(APIView):
                 "search": search_term,
                 "count": results.count(),
                 "results": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class UsageSummaryView(APIView):
+
+    permission_classes = [IsCompanyAdmin]
+
+    def get(self, request):
+
+        total_queries = QueryLog.objects.count()
+
+        company_summary = (
+            QueryLog.objects
+            .values("company__company_name")
+            .annotate(query_count=Count("id"))
+            .order_by("-query_count")
+        )
+
+        return Response(
+            {
+                "total_queries": total_queries,
+                "companies": company_summary,
             },
             status=status.HTTP_200_OK,
         )
